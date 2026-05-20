@@ -93,8 +93,17 @@
   .btn-restore:hover { background: #E6F1FB; }
   .archive-empty { text-align: center; font-size: 13px; color: #aaa; padding: 20px 0; }
 </style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 </head>
-<body>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
+</script>
+</body>
 
 <div class="top-bar">
   <h1>🗂 Meu Kanban</h1>
