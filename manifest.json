@@ -1,0 +1,20 @@
+{
+  "name": "Meu Kanban",
+  "short_name": "Kanban",
+  "start_url": "/Kanban/",
+  "display": "standalone",
+  "background_color": "#f5f4f0",
+  "theme_color": "#1a1a1a",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192/1a1a1a/ffffff?text=K",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512/1a1a1a/ffffff?text=K",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
