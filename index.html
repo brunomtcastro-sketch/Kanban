@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meu Kanban</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100vh; padding: 2rem 1rem; color: #1a1a1a; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 1rem; }
+  h1 { font-size: 20px; font-weight: 500; }
+  .progress-wrap { margin-bottom: 1.25rem; }
+  .progress-label { font-size: 12px; color: #777; margin-bottom: 5px; }
+  .progress-bar-bg { background: #ddd; border-radius: 10px; height: 7px; width: 100%; }
+  .progress-bar-fill { background: #3B6D11; height: 7px; border-radius: 10px; transition: width 0.4s; }
+  .filter-bar { display: flex; gap: 6px; align-items: center; }
+  .filter-btn { font-size: 11px; padding: 3px 10px; border: 0.5px solid #ccc; border-radius: 20px; background: transparent; cursor: pointer; color: #555; }
+  .filter-btn:hover { background: #e8e8e8; }
+  .filter-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media(max-width: 600px) { .board { grid-template-columns: 1fr; } }
+  .col { border-radius: 12px; padding: 12px; }
+  .col-todo  { background: #eaeaea; }
+  .col-doing { background: #deeaf7; }
+  .col-done  { background: #ddf0e2; }
+  .col-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .col-label { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .col-todo  .col-label { color: #555; }
+  .col-doing .col-label { color: #185FA5; }
+  .col-done  .col-label { color: #3B6D11; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-todo  { background: #888; }
+  .dot-doing { background: #185FA5; }
+  .dot-done  { background: #3B6D11; }
+  .col-count { font-size: 12px; background: #fff; border: 0.5px solid #ccc; border-radius: 10px; padding: 1px 7px; color: #777; }
+  .cards { display: flex; flex-direction: column; gap: 8px; min-height: 40px; }
+  .card { background: #fff; border: 0.5px solid #ddd; border-radius: 8px; padding: 10px 12px; cursor: grab; transition: opacity 0.15s; }
+  .card:active { cursor: grabbing; }
+  .card.dragging { opacity: 0.4; }
+  .card.drag-over { border: 1.5px dashed #185FA5; }
+  .card.overdue { border-left: 3px solid #c0392b; }
+  .card.hidden-filter { display: none; }
+  .card-title { font-size: 14px; font-weight: 600; color: #1a1a1a; line-height: 1.4; flex: 1; }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .badge { font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 10px; white-space: nowrap; }
+  .badge-alta  { background: #FCEBEB; color: #A32D2D; }
+  .badge-media { background: #FAEEDA; color: #854F0B; }
+  .badge-baixa { background: #EAF3DE; color: #3B6D11; }
+  .card-date { font-size: 11px; color: #999; margin-top: 6px; }
+  .card-date.late { color: #c0392b; font-weight: 600; }
+  .card-note { font-size: 11px; color: #666; margin-top: 6px; border-top: 0.5px solid #eee; padding-top: 6px; }
+  .card-actions { display: flex; gap: 3px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+  .btn-move, .btn-edit, .btn-done, .btn-del, .btn-archive {
+    font-size: 11px; padding: 2px 7px; background: transparent;
+    border: 0.5px solid #ccc; border-radius: 6px; cursor: pointer;
+  }
+  .btn-move    { color: #666; } .btn-move:hover    { background: #f0f0f0; }
+  .btn-edit    { color: #185FA5; } .btn-edit:hover    { background: #E6F1FB; }
+  .btn-done    { color: #3B6D11; } .btn-done:hover    { background: #EAF3DE; }
+  .btn-archive { color: #854F0B; } .btn-archive:hover { background: #FAEEDA; }
+  .btn-del     { color: #c0392b; margin-left: auto; } .btn-del:hover { background: #FCEBEB; }
+  .edit-form { margin-top: 10px; border-top: 0.5px solid #eee; padding-top: 10px; display: none; flex-direction: column; gap: 7px; }
+  .edit-form.open { display: flex; }
+  .add-form { margin-top: 10px; background: #fff; border: 0.5px solid #ccc; border-radius: 8px; padding: 10px; display: none; flex-direction: column; gap: 7px; }
+  .add-form.open { display: flex; }
+  input, select, textarea { font-size: 13px; width: 100%; border: 0.5px solid #ccc; border-radius: 6px; padding: 6px 8px; font-family: inherit; outline: none; background: #fff; color: #1a1a1a; }
+  input:focus, select:focus, textarea:focus { border-color: #888; }
+  textarea { resize: none; height: 52px; }
+  .form-row { display: flex; gap: 6px; }
+  .form-row input, .form-row select { flex: 1; }
+  .btn-primary   { font-size: 13px; padding: 6px 12px; background: #1a1a1a; border: none; border-radius: 6px; cursor: pointer; color: #fff; font-weight: 500; }
+  .btn-primary:hover { background: #333; }
+  .btn-secondary { font-size: 13px; padding: 6px 12px; background: transparent; border: 0.5px solid #ccc; border-radius: 6px; cursor: pointer; color: #555; }
+  .btn-secondary:hover { background: #f0f0f0; }
+  .btn-row { display: flex; gap: 6px; }
+  .btn-add { font-size: 12px; color: #999; background: transparent; border: none; cursor: pointer; padding: 6px 0; display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+  .btn-add:hover { color: #333; }
+  .empty { text-align: center; font-size: 13px; color: #aaa; padding: 14px 0; }
+  .loading { text-align: center; font-size: 13px; color: #aaa; padding: 2rem 0; }
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1a1a1a; color: #fff; font-size: 13px; padding: 8px 16px; border-radius: 8px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 200; }
+  .toast.show { opacity: 1; }
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; padding: 20px; width: min(480px, 92vw); max-height: 70vh; display: flex; flex-direction: column; gap: 12px; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 16px; font-weight: 500; }
+  .btn-close { background: transparent; border: none; font-size: 18px; cursor: pointer; color: #999; padding: 0 4px; }
+  .archive-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .archive-item { background: #f9f9f9; border: 0.5px solid #ddd; border-radius: 8px; padding: 9px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .archive-item-title { font-size: 13px; font-weight: 600; }
+  .archive-item-meta  { font-size: 11px; color: #999; margin-top: 2px; }
+  .btn-restore { font-size: 11px; padding: 2px 8px; background: transparent; border: 0.5px solid #ccc; border-radius: 6px; cursor: pointer; color: #185FA5; white-space: nowrap; }
+  .btn-restore:hover { background: #E6F1FB; }
+  .archive-empty { text-align: center; font-size: 13px; color: #aaa; padding: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>🗂 Meu Kanban</h1>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <div class="filter-bar">
+      <span style="font-size:12px;color:#777;">Filtrar:</span>
+      <button class="filter-btn active" onclick="setFilter(this,'todas')">Todas</button>
+      <button class="filter-btn" onclick="setFilter(this,'alta')">↑ Alta</button>
+      <button class="filter-btn" onclick="setFilter(this,'atrasadas')">⚠ Atrasadas</button>
+    </div>
+    <button class="filter-btn" onclick="openArchive()" style="border-color:#854F0B;color:#854F0B;">📦 Arquivo</button>
+  </div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-label" id="progress-label">Carregando...</div>
+  <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar" style="width:0%"></div></div>
+</div>
+
+<div class="board" id="board"><div class="loading" style="grid-column:1/-1">Conectando ao banco de dados...</div></div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">📦 Tarefas arquivadas</span>
+      <button class="btn-close" onclick="closeArchive()">✕</button>
+    </div>
+    <div class="archive-list" id="archive-list"></div>
+  </div>
+</div>
+
+<script>
+const SB_URL = 'https://nqofgpubfmbfahcheihb.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xb2ZncHViZm1iZmFoY2hlaWhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyODIyMzksImV4cCI6MjA5NDg1ODIzOX0.l1fd847-f9e2BUa2c9JOKZO2hc0qfF2KiBamJAnIi_Q';
+const HEADERS = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
+
+const COLS = [
+  { id: 'todo',  label: 'A Fazer',      dotClass: 'dot-todo',  colClass: 'col-todo'  },
+  { id: 'doing', label: 'Em Andamento', dotClass: 'dot-doing', colClass: 'col-doing' },
+  { id: 'done',  label: 'Concluído',    dotClass: 'dot-done',  colClass: 'col-done'  }
+];
+
+let tasks = [], activeFilter = 'todas', formOpen = null, editingId = null, dragId = null;
+const today = new Date(); today.setHours(0,0,0,0);
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(d) { if (!d) return ''; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; }
+function prioLabel(p) { return p==='alta'?'↑ Alta':p==='média'?'~ Média':'↓ Baixa'; }
+function badgeClass(p) { return p==='alta'?'badge-alta':p==='média'?'badge-media':'badge-baixa'; }
+function isOverdue(t) { if (!t.date || t.col==='done') return false; return new Date(t.date) < today; }
+function nextId() { return Date.now() + Math.random().toString(36).slice(2); }
+function colTasks(id) { return tasks.filter(t => t.col === id && !t.archived).sort((a,b) => a.position - b.position); }
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// --- Supabase API ---
+async function sbFetch(path, method='GET', body=null) {
+  const opts = { method, headers: { ...HEADERS, 'Prefer': method==='POST' ? 'return=representation' : '' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(SB_URL + '/rest/v1/' + path, opts);
+  if (!r.ok) { const e = await r.text(); throw new Error(e); }
+  return r.status === 204 ? null : r.json();
+}
+
+async function loadTasks() {
+  try {
+    const data = await sbFetch('tasks?order=position.asc');
+    tasks = data || [];
+    render();
+  } catch(e) {
+    document.getElementById('board').innerHTML = '<div class="loading" style="grid-column:1/-1;color:#c0392b;">Erro ao conectar. Verifique as configurações.</div>';
+  }
+}
+
+async function dbInsert(task) {
+  try { await sbFetch('tasks', 'POST', task); } catch(e) { toast('Erro ao salvar'); }
+}
+
+async function dbUpdate(id, fields) {
+  try { await sbFetch(`tasks?id=eq.${id}`, 'PATCH', fields); } catch(e) { toast('Erro ao atualizar'); }
+}
+
+async function dbDelete(id) {
+  try { await sbFetch(`tasks?id=eq.${id}`, 'DELETE'); } catch(e) { toast('Erro ao excluir'); }
+}
+
+// --- Actions ---
+async function addTask(colId) {
+  const titleEl = document.getElementById('inp-title-' + colId);
+  const title = titleEl.value.trim();
+  if (!title) { titleEl.focus(); return; }
+  const pos = colTasks(colId).length;
+  const task = {
+    id: nextId(), col: colId, title,
+    prio: document.getElementById('inp-prio-' + colId).value,
+    date: document.getElementById('inp-date-' + colId).value || null,
+    note: document.getElementById('inp-note-' + colId).value.trim() || null,
+    position: pos, archived: false, archived_at: null
+  };
+  tasks.push(task);
+  formOpen = null; render();
+  await dbInsert(task);
+  toast('Tarefa adicionada!');
+}
+
+async function saveEdit(id) {
+  const idx = tasks.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  const title = document.getElementById('edit-title-' + id).value.trim();
+  if (!title) { document.getElementById('edit-title-' + id).focus(); return; }
+  const fields = {
+    title,
+    prio:  document.getElementById('edit-prio-' + id).value,
+    date:  document.getElementById('edit-date-' + id).value || null,
+    note:  document.getElementById('edit-note-' + id).value.trim() || null
+  };
+  Object.assign(tasks[idx], fields);
+  editingId = null; render();
+  await dbUpdate(id, fields);
+  toast('Tarefa atualizada!');
+}
+
+async function moveTo(id, dir) {
+  const idx = tasks.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  const order = COLS.map(c => c.id);
+  const next = order.indexOf(tasks[idx].col) + dir;
+  if (next < 0 || next >= order.length) return;
+  tasks[idx].col = order[next];
+  render();
+  await dbUpdate(id, { col: tasks[idx].col });
+}
+
+async function concludeTask(id) {
+  const idx = tasks.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  tasks[idx].col = 'done';
+  render();
+  await dbUpdate(id, { col: 'done' });
+  toast('✅ Tarefa concluída!');
+}
+
+async function archiveTask(id) {
+  const idx = tasks.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  const at = new Date().toISOString();
+  tasks[idx].archived = true; tasks[idx].archived_at = at;
+  render();
+  await dbUpdate(id, { archived: true, archived_at: at });
+  toast('📦 Tarefa arquivada');
+}
+
+async function restoreTask(id) {
+  const idx = tasks.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  tasks[idx].archived = false; tasks[idx].archived_at = null;
+  renderArchive(); render();
+  await dbUpdate(id, { archived: false, archived_at: null });
+  toast('Tarefa restaurada!');
+}
+
+async function delTask(id) {
+  if (!confirm('Excluir esta tarefa?')) return;
+  tasks = tasks.filter(t => t.id !== id);
+  render();
+  await dbDelete(id);
+  toast('Tarefa excluída');
+}
+
+// --- Drag & drop ---
+function onDragStart(e, id) {
+  dragId = id;
+  setTimeout(() => { const el = document.getElementById('card-' + id); if(el) el.classList.add('dragging'); }, 0);
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onDragEnd() {
+  dragId = null;
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('dragging','drag-over'));
+}
+function onDragOver(e, id) {
+  e.preventDefault();
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('drag-over'));
+  if (id !== dragId) { const el = document.getElementById('card-' + id); if(el) el.classList.add('drag-over'); }
+}
+async function onDrop(e, targetId) {
+  e.preventDefault(); e.stopPropagation();
+  if (!dragId || dragId === targetId) return;
+  const drag = tasks.find(t => t.id === dragId);
+  const tgt  = tasks.find(t => t.id === targetId);
+  if (!drag || !tgt) return;
+  drag.col = tgt.col;
+  const colT = tasks.filter(t => t.col === drag.col && !t.archived && t.id !== dragId);
+  colT.splice(colT.findIndex(t => t.id === targetId), 0, drag);
+  colT.forEach((t, i) => t.position = i);
+  tasks = [...tasks.filter(t => t.col !== drag.col || t.archived), ...colT];
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('drag-over'));
+  render();
+  await Promise.all(colT.map(t => dbUpdate(t.id, { col: t.col, position: t.position })));
+}
+async function onColDrop(e, colId) {
+  e.preventDefault();
+  if (!dragId) return;
+  const drag = tasks.find(t => t.id === dragId);
+  if (!drag) return;
+  drag.col = colId;
+  drag.position = colTasks(colId).length;
+  render();
+  await dbUpdate(dragId, { col: colId, position: drag.position });
+}
+
+// --- Filter ---
+function setFilter(btn, f) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilter();
+}
+function applyFilter() {
+  document.querySelectorAll('.card[data-id]').forEach(el => {
+    const t = tasks.find(t => t.id === el.dataset.id);
+    if (!t) return;
+    let hide = false;
+    if (activeFilter === 'alta')      hide = t.prio !== 'alta';
+    if (activeFilter === 'atrasadas') hide = !isOverdue(t);
+    el.classList.toggle('hidden-filter', hide);
+  });
+}
+
+// --- Archive modal ---
+function openArchive()  { renderArchive(); document.getElementById('modal-bg').classList.add('open'); }
+function closeArchive() { document.getElementById('modal-bg').classList.remove('open'); }
+function renderArchive() {
+  const arc = tasks.filter(t => t.archived);
+  const list = document.getElementById('archive-list');
+  if (!arc.length) { list.innerHTML = '<div class="archive-empty">Nenhuma tarefa arquivada.</div>'; return; }
+  list.innerHTML = arc.map(t => `
+    <div class="archive-item">
+      <div>
+        <div class="archive-item-title">${esc(t.title)}</div>
+        <div class="archive-item-meta">${prioLabel(t.prio)}${t.date ? ' · ' + fmtDate(t.date) : ''}</div>
+      </div>
+      <button class="btn-restore" onclick="restoreTask('${t.id}')">↩ Restaurar</button>
+    </div>
+  `).join('');
+}
+
+function updateProgress() {
+  const active = tasks.filter(t => !t.archived);
+  const total = active.length, done = active.filter(t => t.col === 'done').length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('progress-label').textContent = `${done} de ${total} tarefa${total!==1?'s':''} concluída${done!==1?'s':''} (${pct}%)`;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function toggleForm(colId) { formOpen = formOpen === colId ? null : colId; editingId = null; render(); }
+function toggleEdit(id) {
+  editingId = editingId === id ? null : id; render();
+  if (editingId) setTimeout(() => { const el = document.getElementById('edit-title-' + id); if(el) el.focus(); }, 50);
+}
+function handleKeydown(e, fn, arg) { if (e.key === 'Enter') { e.preventDefault(); fn(arg); } }
+
+function render() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  COLS.forEach((col, ci) => {
+    const cts = colTasks(col.id);
+    const isOpen = formOpen === col.id;
+    const div = document.createElement('div');
+    div.className = `col ${col.colClass}`;
+    div.ondragover = e => e.preventDefault();
+    div.ondrop = e => onColDrop(e, col.id);
+    div.innerHTML = `
+      <div class="col-header">
+        <span class="col-label"><span class="dot ${col.dotClass}"></span>${col.label}</span>
+        <span class="col-count">${cts.length}</span>
+      </div>
+      <div class="cards" id="cards-${col.id}">
+        ${cts.length === 0 ? '<div class="empty">Nenhuma tarefa</div>' : ''}
+        ${cts.map(t => {
+          const isEditing = editingId === t.id, late = isOverdue(t);
+          return `
+          <div class="card ${late?'overdue':''}" id="card-${t.id}" data-id="${t.id}"
+            draggable="${!isEditing}"
+            ondragstart="onDragStart(event,'${t.id}')"
+            ondragend="onDragEnd()"
+            ondragover="onDragOver(event,'${t.id}')"
+            ondrop="onDrop(event,'${t.id}')">
+            ${!isEditing ? `
+              <div class="card-top">
+                <span class="card-title">${esc(t.title)}</span>
+                <span class="badge ${badgeClass(t.prio)}">${prioLabel(t.prio)}</span>
+              </div>
+              ${t.date ? `<div class="card-date ${late?'late':''}">📅 ${fmtDate(t.date)}${late?' · atrasada':''}</div>` : ''}
+              ${t.note ? `<div class="card-note">${esc(t.note)}</div>` : ''}
+              <div class="card-actions">
+                ${ci > 0 ? `<button class="btn-move" onclick="moveTo('${t.id}',-1)">← Voltar</button>` : ''}
+                ${ci < 2 ? `<button class="btn-move" onclick="moveTo('${t.id}',1)">Avançar →</button>` : ''}
+                ${ci < 2 ? `<button class="btn-done" onclick="concludeTask('${t.id}')">✅ Concluir</button>` : ''}
+                ${ci === 2 ? `<button class="btn-archive" onclick="archiveTask('${t.id}')">📦 Arquivar</button>` : ''}
+                <button class="btn-edit" onclick="toggleEdit('${t.id}')">✏️ Editar</button>
+                <button class="btn-del" onclick="delTask('${t.id}')">🗑</button>
+              </div>
+            ` : `
+              <div class="edit-form open">
+                <input id="edit-title-${t.id}" type="text" value="${esc(t.title)}" placeholder="Título"
+                  onkeydown="handleKeydown(event,saveEdit,'${t.id}')" />
+                <div class="form-row">
+                  <select id="edit-prio-${t.id}">
+                    <option value="baixa" ${t.prio==='baixa'?'selected':''}>↓ Baixa</option>
+                    <option value="média" ${t.prio==='média'?'selected':''}>~ Média</option>
+                    <option value="alta"  ${t.prio==='alta' ?'selected':''}>↑ Alta</option>
+                  </select>
+                  <input id="edit-date-${t.id}" type="date" value="${t.date||''}" />
+                </div>
+                <textarea id="edit-note-${t.id}" placeholder="Notas (opcional)">${esc(t.note||'')}</textarea>
+                <div class="btn-row">
+                  <button class="btn-primary" onclick="saveEdit('${t.id}')">💾 Salvar</button>
+                  <button class="btn-secondary" onclick="toggleEdit('${t.id}')">Cancelar</button>
+                </div>
+              </div>
+            `}
+          </div>`;
+        }).join('')}
+      </div>
+      <button class="btn-add" onclick="toggleForm('${col.id}')">+ ${isOpen ? 'Cancelar' : 'Adicionar tarefa'}</button>
+      <div class="add-form ${isOpen ? 'open' : ''}">
+        <input id="inp-title-${col.id}" type="text" placeholder="Título da tarefa"
+          onkeydown="handleKeydown(event,addTask,'${col.id}')" />
+        <div class="form-row">
+          <select id="inp-prio-${col.id}">
+            <option value="baixa">↓ Baixa</option>
+            <option value="média" selected>~ Média</option>
+            <option value="alta">↑ Alta</option>
+          </select>
+          <input id="inp-date-${col.id}" type="date" />
+        </div>
+        <textarea id="inp-note-${col.id}" placeholder="Notas (opcional)"></textarea>
+        <button class="btn-primary" onclick="addTask('${col.id}')">+ Adicionar</button>
+      </div>
+    `;
+    board.appendChild(div);
+    if (isOpen) setTimeout(() => { const el = document.getElementById('inp-title-' + col.id); if(el) el.focus(); }, 50);
+  });
+  updateProgress();
+  applyFilter();
+}
+
+loadTasks();
+</script>
+</body>
+</html>
